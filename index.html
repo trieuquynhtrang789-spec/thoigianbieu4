@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personal Calendar & Task Manager</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'sans': ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Boxicons CDN -->
+    <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+
+    <!-- Day.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.13/dayjs.min.js"></script>
+
+    <style>
+        :root {
+            --transition-speed: 0.2s;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f8fafc;
+            color: #1e293b;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* Calendar cell base */
+        .cal-cell {
+            min-height: 100px;
+            cursor: pointer;
+            transition: all var(--transition-speed) ease;
+            position: relative;
+        }
+        .cal-cell:hover {
+            background-color: #f1f5f9 !important;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            z-index: 5;
+        }
+
+        /* Modal animations */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px) scale(0.97);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+        @keyframes scaleIn {
+            from {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .modal-overlay {
+            animation: fadeIn 0.2s ease-out;
+        }
+        .modal-content {
+            animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* Task item animation */
+        @keyframes slideRight {
+            from {
+                opacity: 0;
+                transform: translateX(-16px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        .task-item-anim {
+            animation: slideRight 0.25s ease-out;
+        }
+
+        /* Task done */
+        .task-completed .task-text {
+            text-decoration: line-through;
+            opacity: 0.5;
+        }
+        .task-completed {
+            opacity: 0.65;
+        }
+
+        /* Today pulse ring */
+        @keyframes pulseRing {
+            0%, 100% {
+                box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5);
+            }
+            50% {
+                box-shadow: 0 0 0 8px rgba(59, 130, 246, 0);
+            }
+        }
+        .today-ring {
+            animation: pulseRing 2s infinite;
+        }
+
+        /* Shake on error */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-6px); }
+            75% { transform: translateX(6px); }
+        }
+        .shake {
+            animation: shake 0.4s ease;
+        }
+
+        /* Calendar day cells responsive */
+        @media (max-width: 640px) {
+            .cal-cell {
+                min-height: 72px;
+            }
+        }
+
+        /* Color radio buttons */
+        .color-radio:checked + .color-swatch {
+            outline: 3px solid #1e293b;
+            outline-offset: 2px;
+            transform: scale(1.15);
+        }
+        .color-swatch {
+            transition: all 0.15s ease;
+            cursor: pointer;
+        }
+        .color-swatch:hover {
+            transform: scale(1.1);
+        }
+
+        /* Subtle background pattern for empty */
+        .empty-illustration {
+            opacity: 0.25;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-slate-50">
+
+    <!-- ===== MAIN CONTAINER ===== -->
+    <div class="max-w-6xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-8">
+
+        <!-- ===== HEADER ===== -->
+        <header class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 sm:w-11 sm:h-11 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200">
+                    <i class="bx bx-calendar-alt text-white text-xl sm:text-2xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">My Calendar</h1>
+                    <p class="text-xs sm:text-sm text-slate-500 font-medium">Personal Task Manager</p>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="flex items-center gap-2 px-3 py-2 bg-white rounded-xl border border-slate-200 shadow-sm text-sm">
+                <i class="bx bx-task text-blue-500"></i>
+                <span class="text-slate-500">Tổng:</span>
+                <span id="totalTaskCount" class="font-bold text-slate-700">0</span>
+                <span class="text-slate-400">việc</span>
+            </div>
+        </header>
+
+        <!-- ===== CALENDAR NAVIGATION ===== -->
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-3 mb-5">
+            <div class="flex items-center gap-2">
+                <button id="btnPrev" onclick="navigateMonth(-1)"
+                        class="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 hover:bg-slate-100 active:scale-95 transition-all shadow-sm"
+                        aria-label="Previous month">
+                    <i class="bx bx-chevron-left text-slate-600 text-xl"></i>
+                </button>
+
+                <h2 id="monthYearLabel" class="text-lg sm:text-xl font-bold text-slate-800 min-w-[170px] text-center select-none"></h2>
+
+                <button id="btnNext" onclick="navigateMonth(1)"
+                        class="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 hover:bg-slate-100 active:scale-95 transition-all shadow-sm"
+                        aria-label="Next month">
+                    <i class="bx bx-chevron-right text-slate-600 text-xl"></i>
+                </button>
+
+                <button onclick="goToToday()"
+                        class="ml-1 px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-semibold text-sm transition-all shadow-md shadow-blue-200 flex items-center gap-1.5">
+                    <i class="bx bx-calendar-check text-sm"></i>
+                    Hôm nay
+                </button>
+            </div>
+
+            <!-- Color Legend -->
+            <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-xs text-slate-400 font-medium">Ưu tiên:</span>
+                <span class="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-red-50 text-red-700 font-semibold border border-red-200">
+                    <span class="w-2 h-2 rounded-full bg-red-500"></span> Khẩn
+                </span>
+                <span class="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-orange-50 text-orange-700 font-semibold border border-orange-200">
+                    <span class="w-2 h-2 rounded-full bg-orange-500"></span> Quan trọng
+                </span>
+                <span class="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-blue-50 text-blue-700 font-semibold border border-blue-200">
+                    <span class="w-2 h-2 rounded-full bg-blue-500"></span> Cá nhân
+                </span>
+                <span class="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-green-50 text-green-700 font-semibold border border-green-200">
+                    <span class="w-2 h-2 rounded-full bg-green-500"></span> Bình thường
+                </span>
+                <span class="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-purple-50 text-purple-700 font-semibold border border-purple-200">
+                    <span class="w-2 h-2 rounded-full bg-purple-500"></span> Giải trí
+                </span>
+            </div>
+        </div>
+
+        <!-- ===== WEEKDAY HEADERS ===== -->
+        <div class="grid grid-cols-7 gap-1.5 sm:gap-2 mb-1">
+            <div class="text-center text-xs sm:text-sm font-bold text-slate-500 py-3 bg-white/60 rounded-t-xl">CN</div>
+            <div class="text-center text-xs sm:text-sm font-bold text-slate-700 py-3 bg-white/60 rounded-t-xl">T2</div>
+            <div class="text-center text-xs sm:text-sm font-bold text-slate-700 py-3 bg-white/60 rounded-t-xl">T3</div>
+            <div class="text-center text-xs sm:text-sm font-bold text-slate-700 py-3 bg-white/60 rounded-t-xl">T4</div>
+            <div class="text-center text-xs sm:text-sm font-bold text-slate-700 py-3 bg-white/60 rounded-t-xl">T5</div>
+            <div class="text-center text-xs sm:text-sm font-bold text-slate-700 py-3 bg-white/60 rounded-t-xl">T6</div>
+            <div class="text-center text-xs sm:text-sm font-bold text-slate-700 py-3 bg-white/60 rounded-t-xl">T7</div>
+        </div>
+
+        <!-- ===== CALENDAR GRID ===== -->
+        <div id="calendarGrid" class="grid grid-cols-7 gap-1.5 sm:gap-2">
+            <!-- Rendered by JS -->
+        </div>
+
+        <!-- ===== FOOTER HINT ===== -->
+        <p class="text-center text-xs text-slate-400 mt-8 select-none">
+            <i class="bx bx-mouse-alt"></i> Nhấp vào một ngày trên lịch để xem và thêm công việc
+        </p>
+    </div>
+
+    <!-- ========================================
+         MODAL: DAY DETAIL & TASK MANAGEMENT
+         ======================================== -->
+    <div id="modalOverlay" class="modal-overlay hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4"
+         style="background-color: rgba(15, 23, 42, 0.5); backdrop-filter: blur(4px);">
+        <div id="modalBox" class="modal-content bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[88vh] flex flex-col overflow-hidden border border-slate-100">
+
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+                <div>
+                    <h3 id="modalTitle" class="text-lg font-bold text-slate-800"></h3>
+                    <p id="modalSubtitle" class="text-sm text-slate-500 mt-0.5"></p>
+                </div>
+                <button onclick="closeModal()"
+                        class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 transition-colors"
+                        aria-label="Close">
+                    <i class="bx bx-x text-slate-500 text-xl"></i>
+                </button>
+            </div>
+
+            <!-- Add Task Form -->
+            <div class="px-5 py-4 border-b border-slate-100 bg-slate-50/50">
+                <div class="flex flex-col gap-3">
+                    <!-- Task name input -->
+                    <div class="flex gap-2">
+                        <input type="text" id="newTaskText"
+                               placeholder="Tên công việc (VD: Dạy học, Đi chơi, Họp team...)"
+                               class="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-800 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                               maxlength="120"
+                               onkeydown="if(event.key==='Enter')addTask()">
+                        <input type="time" id="newTaskTime"
+                               class="w-28 sm:w-32 px-3 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                               title="Thời gian">
+                    </div>
+
+                    <!-- Color selection -->
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span class="text-xs font-semibold text-slate-500 mr-1">Màu:</span>
+
+                        <label class="relative cursor-pointer">
+                            <input type="radio" name="taskColor" value="#EF4444" checked class="color-radio hidden">
+                            <span class="color-swatch w-7 h-7 rounded-full bg-red-500 block shadow-sm" title="Khẩn cấp"></span>
+                        </label>
+                        <label class="relative cursor-pointer">
+                            <input type="radio" name="taskColor" value="#F97316" class="color-radio hidden">
+                            <span class="color-swatch w-7 h-7 rounded-full bg-orange-500 block shadow-sm" title="Quan trọng"></span>
+                        </label>
+                        <label class="relative cursor-pointer">
+                            <input type="radio" name="taskColor" value="#3B82F6" class="color-radio hidden">
+                            <span class="color-swatch w-7 h-7 rounded-full bg-blue-500 block shadow-sm" title="Cá nhân"></span>
+                        </label>
+                        <label class="relative cursor-pointer">
+                            <input type="radio" name="taskColor" value="#22C55E" class="color-radio hidden">
+                            <span class="color-swatch w-7 h-7 rounded-full bg-green-500 block shadow-sm" title="Bình thường"></span>
+                        </label>
+                        <label class="relative cursor-pointer">
+                            <input type="radio" name="taskColor" value="#A855F7" class="color-radio hidden">
+                            <span class="color-swatch w-7 h-7 rounded-full bg-purple-500 block shadow-sm" title="Giải trí"></span>
+                        </label>
+                    </div>
+
+                    <!-- Add button -->
+                    <button onclick="addTask()"
+                            class="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-semibold text-sm transition-all shadow-md shadow-blue-200 flex items-center justify-center gap-2">
+                        <i class="bx bx-plus text-lg"></i>
+                        Thêm công việc
+                    </button>
+                </div>
+            </div>
+
+            <!-- Task List -->
+            <div class="flex-1 overflow-y-auto">
+                <div id="taskListContainer" class="px-5 py-4 space-y-2">
+                    <!-- Rendered by JS -->
+                </div>
+                <div id="emptyTaskState" class="hidden flex flex-col items-center justify-center py-14 px-5 text-center">
+                    <div class="empty-illustration mb-4">
+                        <i class="bx bx-note text-7xl text-slate-300"></i>
+                    </div>
+                    <p class="text-sm font-medium text-slate-400">Chưa có công việc nào</p>
+                    <p class="text-xs text-slate-350 mt-1">Nhập tên và thời gian, sau đó nhấn "Thêm công việc"</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================
+         DELETE CONFIRMATION TOAST
+         ======================================== -->
+    <div id="confirmToast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] bg-white rounded-2xl shadow-2xl border border-slate-200 px-5 py-3 flex items-center gap-3 text-sm">
+        <span id="confirmToastMsg"></span>
+        <button id="confirmToastYes" class="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg text-xs font-semibold transition-colors">Xóa</button>
+        <button onclick="hideConfirmToast()" class="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-semibold transition-colors">Hủy</button>
+    </div>
+
+    <script>
+        (function() {
+            // ==================== CONSTANTS ====================
+            const STORAGE_KEY = 'calendar_tasks_v1';
+            const COLOR_MAP = {
+                '#EF4444': { label: 'Khẩn cấp', bg: 'bg-red-100', text: 'text-red-700', border: 'border-red-300', dot: 'bg-red-500' },
+                '#F97316': { label: 'Quan trọng', bg: 'bg-orange-100', text: 'text-orange-700', border: 'border-orange-300', dot: 'bg-orange-500' },
+                '#3B82F6': { label: 'Cá nhân', bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-300', dot: 'bg-blue-500' },
+                '#22C55E': { label: 'Bình thường', bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-300', dot: 'bg-green-500' },
+                '#A855F7': { label: 'Giải trí', bg: 'bg-purple-100', text: 'text-purple-700', border: 'border-purple-300', dot: 'bg-purple-500' },
+            };
+
+            // ==================== STATE ====================
+            let currentDate = dayjs(); // Day.js object for current displayed month
+            let selectedDateKey = null; // 'YYYY-MM-DD'
+            let tasks = {}; // { 'YYYY-MM-DD': [ { id, text, time, color, done }, ... ] }
+            let pendingDelete = null; // { dateKey, taskId }
+
+            // ==================== DOM REFS ====================
+            const calendarGrid = document.getElementById('calendarGrid');
+            const monthYearLabel = document.getElementById('monthYearLabel');
+            const modalOverlay = document.getElementById('modalOverlay');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalSubtitle = document.getElementById('modalSubtitle');
+            const taskListContainer = document.getElementById('taskListContainer');
+            const emptyTaskState = document.getElementById('emptyTaskState');
+            const newTaskText = document.getElementById('newTaskText');
+            const newTaskTime = document.getElementById('newTaskTime');
+            const totalTaskCount = document.getElementById('totalTaskCount');
+            const confirmToast = document.getElementById('confirmToast');
+            const confirmToastMsg = document.getElementById('confirmToastMsg');
+            const confirmToastYes = document.getElementById('confirmToastYes');
+
+            // ==================== LOCAL STORAGE ====================
+            function loadTasks() {
+                try {
+                    const raw = localStorage.getItem(STORAGE_KEY);
+                    tasks = raw ? JSON.parse(raw) : {};
+                } catch (err) {
+                    console.error('Lỗi đọc LocalStorage:', err);
+                    tasks = {};
+                }
+            }
+
+            function saveTasks() {
+                try {
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+                } catch (err) {
+                    console.error('Lỗi ghi LocalStorage:', err);
+                    showTemporaryAlert('Không thể lưu dữ liệu. Bộ nhớ có thể đã đầy.');
+                }
+            }
+
+            // ==================== HELPERS ====================
+            function dateKey(dayjsObj) {
+                return dayjsObj.format('YYYY-MM-DD');
+            }
+
+            function todayKey() {
+                return dayjs().format('YYYY-MM-DD');
+            }
+
+            function generateId() {
+                return Date.now().toString(36) + Math.random().toString(36).substring(2, 9);
+            }
+
+            function escapeHtml(str) {
+                const div = document.createElement('div');
+                div.textContent = str;
+                return div.innerHTML;
+            }
+
+            function showTemporaryAlert(message) {
+                // Simple inline alert - show a small bar
+                const bar = document.createElement('div');
+                bar.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-[70] bg-red-500 text-white px-5 py-2.5 rounded-xl shadow-lg text-sm font-medium animate-[fadeIn_0.2s_ease-out]';
+                bar.textContent = message;
+                document.body.appendChild(bar);
+                setTimeout(() => {
+                    bar.style.opacity = '0';
+                    bar.style.transition = 'opacity 0.3s ease';
+                    setTimeout(() => bar.remove(), 300);
+                }, 2000);
+            }
+
+            function getColorInfo(colorHex) {
+                return COLOR_MAP[colorHex] || { label: 'Khác', bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-300', dot: 'bg-gray-500' };
+            }
+
+            function getSelectedColor() {
+                const checked = document.querySelector('input[name="taskColor"]:checked');
+                return checked ? checked.value : '#EF4444';
+            }
+
+            // ==================== COUNT TOTAL TASKS ====================
+            function updateTotalCount() {
+                let count = 0;
+                for (const key in tasks) {
+                    if (tasks.hasOwnProperty(key)) {
+                        count += tasks[key].length;
+                    }
+                }
+                totalTaskCount.textContent = count;
+            }
+
+            // ==================== RENDER CALENDAR ====================
+            function renderCalendar() {
+                // Update month/year label
+                monthYearLabel.textContent = currentDate.format('MMMM YYYY');
+
+                const todayKeyVal = todayKey();
+                const year = currentDate.year();
+                const month = currentDate.month(); // 0-based
+
+                // First day of month, last day of month
+                const firstDayOfMonth = currentDate.startOf('month');
+                const lastDayOfMonth = currentDate.endOf('month');
+                const daysInMonth = currentDate.daysInMonth();
+
+                // Start day of week (0=Sunday, 1=Monday, ..., 6=Saturday)
+                const startDayOfWeek = firstDayOfMonth.day(); // 0=CN, 1=T2, ..., 6=T7
+
+                // Previous month info
+                const prevMonth = currentDate.subtract(1, 'month');
+                const daysInPrevMonth = prevMonth.daysInMonth();
+
+                let html = '';
+
+                // --- Previous month trailing cells ---
+                for (let i = startDayOfWeek - 1; i >= 0; i--) {
+                    const dayNum = daysInPrevMonth - i;
+                    const cellDate = prevMonth.date(dayNum);
+                    const key = dateKey(cellDate);
+                    html += buildDayCell(dayNum, key, true, false);
+                }
+
+                // --- Current month cells ---
+                for (let d = 1; d <= daysInMonth; d++) {
+                    const cellDate = currentDate.date(d);
+                    const key = dateKey(cellDate);
+                    const isToday = key === todayKeyVal;
+                    html += buildDayCell(d, key, false, isToday);
+                }
+
+                // --- Next month leading cells (fill remaining grid) ---
+                const totalCellsRendered = startDayOfWeek + daysInMonth;
+                const remaining = totalCellsRendered % 7 === 0 ? 0 : 7 - (totalCellsRendered % 7);
+                const nextMonth = currentDate.add(1, 'month');
+                for (let d = 1; d <= remaining; d++) {
+                    const cellDate = nextMonth.date(d);
+                    const key = dateKey(cellDate);
+                    html += buildDayCell(d, key, true, false);
+                }
+
+                calendarGrid.innerHTML = html;
+            }
+
+            function buildDayCell(dayNumber, dateKeyVal, isOtherMonth, isToday) {
+                const dayTasks = tasks[dateKeyVal] || [];
+                const taskCount = dayTasks.length;
+                const completedCount = dayTasks.filter(t => t.done).length;
+
+                // Cell background classes
+                let cellClass = 'cal-cell bg-white border border-slate-200 rounded-xl p-1.5 sm:p-2';
+                if (isOtherMonth) {
+                    cellClass = 'cal-cell bg-slate-100/70 border border-slate-200/60 rounded-xl p-1.5 sm:p-2 opacity-45';
+                }
+                if (isToday) {
+                    cellClass += ' ring-2 ring-blue-500/60 today-ring';
+                }
+
+                // Day number style
+                let dayNumClass = 'text-xs sm:text-sm font-semibold';
+                if (isOtherMonth) {
+                    dayNumClass += ' text-slate-400';
+                } else {
+                    dayNumClass += ' text-slate-700';
+                }
+                if (isToday) {
+                    dayNumClass = 'text-xs sm:text-sm font-bold text-white bg-blue-600 rounded-full w-7 h-7 inline-flex items-center justify-center';
+                }
+
+                // Task pills (max 3 visible)
+                let pillsHtml = '';
+                const maxVisible = 3;
+                dayTasks.slice(0, maxVisible).forEach(t => {
+                    const colorInfo = getColorInfo(t.color);
+                    const doneClass = t.done ? 'line-through opacity-50' : '';
+                    pillsHtml += `
+                        <div class="text-[10px] sm:text-[11px] px-1.5 py-0.5 rounded-md truncate font-medium ${doneClass}"
+                             style="background-color: ${t.color}20; color: ${t.color}; border-left: 3px solid ${t.color};"
+                             title="${escapeHtml(t.time ? t.time + ' - ' : '')}${escapeHtml(t.text)}${t.done ? ' (Đã xong)' : ''}">
+                            ${t.time ? '<span class="font-semibold">' + escapeHtml(t.time) + '</span> ' : ''}${escapeHtml(t.text)}
+                        </div>`;
+                });
+                if (dayTasks.length > maxVisible) {
+                    pillsHtml += `<div class="text-[10px] text-slate-400 px-1.5 font-medium">+${dayTasks.length - maxVisible} thêm</div>`;
+                }
+
+                // Progress bar
+                let progressBar = '';
+                if (taskCount > 0) {
+                    const pct = completedCount > 0 ? Math.round((completedCount / taskCount) * 100) : 0;
+                    progressBar = `
+                        <div class="absolute bottom-0 left-0 right-0 h-1 bg-slate-200 rounded-b-xl overflow-hidden">
+                            <div class="h-full bg-green-400 transition-all duration-500 rounded-b-xl" style="width: ${pct}%"></div>
+                        </div>`;
+                }
+
+                // Task count badge
+                let countBadge = '';
+                if (taskCount > 0) {
+                    countBadge = `<span class="text-[10px] font-bold text-slate-500 bg-slate-100 rounded-full px-1.5 py-0.5 leading-none">${taskCount}</span>`;
+                }
+
+                return `
+                    <div class="${cellClass}" onclick="openModal('${dateKeyVal}')" data-date="${dateKeyVal}">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="${dayNumClass}">${dayNumber}</span>
+                            ${countBadge}
+                        </div>
+                        <div class="flex flex-col gap-0.5 overflow-hidden" style="max-height: 64px;">
+                            ${pillsHtml}
+                        </div>
+                        ${progressBar}
+                    </div>`;
+            }
+
+            // ==================== NAVIGATION ====================
+            function navigateMonth(delta) {
+                currentDate = currentDate.add(delta, 'month');
+                renderCalendar();
+            }
+
+            function goToToday() {
+                currentDate = dayjs();
+                renderCalendar();
+            }
+
+            // Expose to global scope for onclick handlers
+            window.navigateMonth = navigateMonth;
+            window.goToToday = goToToday;
+
+            // ==================== MODAL ====================
+            function openModal(dateKeyVal) {
+                selectedDateKey = dateKeyVal;
+                const dt = dayjs(dateKeyVal);
+                modalTitle.textContent = dt.format('dddd, DD/MM/YYYY');
+                modalSubtitle.textContent = 'Quản lý công việc trong ngày';
+                newTaskText.value = '';
+                newTaskTime.value = '';
+                // Reset color to default red
+                const defaultRadio = document.querySelector('input[name="taskColor"][value="#EF4444"]');
+                if (defaultRadio) defaultRadio.checked = true;
+                modalOverlay.classList.remove('hidden');
+                document.body.style.overflow = 'hidden';
+                renderTaskList();
+                setTimeout(() => newTaskText.focus(), 200);
+            }
+
+            function closeModal() {
+                modalOverlay.classList.add('hidden');
+                document.body.style.overflow = '';
+                selectedDateKey = null;
+                hideConfirmToast();
+                renderCalendar();
+                updateTotalCount();
+            }
+
+            window.openModal = openModal;
+            window.closeModal = closeModal;
+
+            // Close modal on overlay click
+            modalOverlay.addEventListener('click', function(e) {
+                if (e.target === modalOverlay) {
+                    closeModal();
+                }
+            });
+
+            // Close on Escape
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && !modalOverlay.classList.contains('hidden')) {
+                    closeModal();
+                }
+            });
+
+            // ==================== TASK CRUD ====================
+            function addTask() {
+                if (!selectedDateKey) return;
+
+                const text = newTaskText.value.trim();
+                const time = newTaskTime.value;
+                const color = getSelectedColor();
+
+                // Validation
+                if (!text) {
+                    newTaskText.classList.add('shake');
+                    newTaskText.focus();
+                    setTimeout(() => newTaskText.classList.remove('shake'), 400);
+                    return;
+                }
+
+                // Create task object
+                const task = {
+                    id: generateId(),
+                    text: text,
+                    time: time || '',
+                    color: color,
+                    done: false,
+                };
+
+                // Initialize array if needed
+                if (!tasks[selectedDateKey]) {
+                    tasks[selectedDateKey] = [];
+                }
+                tasks[selectedDateKey].push(task);
+                saveTasks();
+
+                // Clear form
+                newTaskText.value = '';
+                newTaskTime.value = '';
+                newTaskText.focus();
+
+                // Reset color
+                const defaultRadio = document.querySelector('input[name="taskColor"][value="#EF4444"]');
+                if (defaultRadio) defaultRadio.checked = true;
+
+                // Re-render
+                renderTaskList();
+                updateTotalCount();
+            }
+
+            window.addTask = addTask;
+
+            function toggleTaskDone(taskId) {
+                if (!selectedDateKey) return;
+                const dayTasks = tasks[selectedDateKey];
+                if (!dayTasks) return;
+                const task = dayTasks.find(t => t.id === taskId);
+                if (task) {
+                    task.done = !task.done;
+                    saveTasks();
+                    renderTaskList();
+                    updateTotalCount();
+                }
+            }
+
+            function confirmDeleteTask(taskId) {
+                if (!selectedDateKey) return;
+                const dayTasks = tasks[selectedDateKey];
+                if (!dayTasks) return;
+                const task = dayTasks.find(t => t.id === taskId);
+                if (!task) return;
+
+                pendingDelete = { dateKey: selectedDateKey, taskId: taskId };
+                confirmToastMsg.textContent = `Xóa "${task.text}"?`;
+                confirmToastYes.onclick = function() {
+                    executeDelete();
+                };
+                confirmToast.classList.remove('hidden');
+            }
+
+            function executeDelete() {
+                if (!pendingDelete) return;
+                const { dateKey: dk, taskId: tid } = pendingDelete;
+                if (tasks[dk]) {
+                    tasks[dk] = tasks[dk].filter(t => t.id !== tid);
+                    if (tasks[dk].length === 0) {
+                        delete tasks[dk];
+                    }
+                    saveTasks();
+                }
+                pendingDelete = null;
+                hideConfirmToast();
+                renderTaskList();
+                updateTotalCount();
+            }
+
+            function hideConfirmToast() {
+                confirmToast.classList.add('hidden');
+                pendingDelete = null;
+            }
+
+            window.toggleTaskDone = toggleTaskDone;
+            window.confirmDeleteTask = confirmDeleteTask;
+            window.hideConfirmToast = hideConfirmToast;
+
+            // ==================== RENDER TASK LIST IN MODAL ====================
+            function renderTaskList() {
+                if (!selectedDateKey) {
+                    taskListContainer.innerHTML = '';
+                    emptyTaskState.classList.remove('hidden');
+                    return;
+                }
+
+                const dayTasks = tasks[selectedDateKey] || [];
+
+                if (dayTasks.length === 0) {
+                    taskListContainer.innerHTML = '';
+                    emptyTaskState.classList.remove('hidden');
+                    return;
+                }
+
+                emptyTaskState.classList.add('hidden');
+
+                // Sort: incomplete first, then by time
+                const sorted = [...dayTasks].sort((a, b) => {
+                    if (a.done !== b.done) return a.done ? 1 : -1;
+                    if (a.time && b.time) return a.time.localeCompare(b.time);
+                    if (a.time) return -1;
+                    if (b.time) return 1;
+                    return 0;
+                });
+
+                let html = '';
+                sorted.forEach((task, idx) => {
+                    const completedClass = task.done ? 'task-completed' : '';
+                    const bgExtra = task.done ? 'bg-slate-50' : '';
+
+                    html += `
+                        <div class="task-item-anim flex items-center gap-3 p-3 rounded-xl border border-slate-200 ${bgExtra} ${completedClass} hover:shadow-md transition-shadow group"
+                             style="animation-delay: ${idx * 0.04}s; border-left: 4px solid ${task.color};">
+
+                            <!-- Checkbox -->
+                            <button onclick="toggleTaskDone('${task.id}')"
+                                    class="flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all hover:scale-110 cursor-pointer"
+                                    style="background-color: ${task.done ? task.color : 'transparent'}; border-color: ${task.color};"
+                                    title="${task.done ? 'Đánh dấu chưa xong' : 'Đánh dấu đã xong'}">
+                                ${task.done ? '<i class="bx bx-check text-white text-sm"></i>' : ''}
+                            </button>
+
+                            <!-- Content -->
+                            <div class="flex-1 min-w-0">
+                                <p class="task-text text-sm font-semibold text-slate-800 truncate">${escapeHtml(task.text)}</p>
+                                ${task.time ? `<p class="task-text text-xs text-slate-500 mt-0.5 font-medium"><i class="bx bx-time-five align-middle"></i> ${escapeHtml(task.time)}</p>` : ''}
+                            </div>
+
+                            <!-- Delete -->
+                            <button onclick="confirmDeleteTask('${task.id}')"
+                                    class="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 transition-all opacity-0 group-hover:opacity-100"
+                                    title="Xóa">
+                                <i class="bx bx-trash text-lg"></i>
+                            </button>
+                        </div>`;
+                });
+
+                taskListContainer.innerHTML = html;
+            }
+
+            // ==================== INIT ====================
+            function init() {
+                loadTasks();
+                renderCalendar();
+                updateTotalCount();
+            }
+
+            // Start app on DOM ready
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', init);
+            } else {
+                init();
+            }
+        })();
+    </script>
+
+</body>
+</html>

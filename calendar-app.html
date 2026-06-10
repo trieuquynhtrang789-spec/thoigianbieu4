@@ -1,0 +1,1398 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lịch Quản Lý Công Việc Cá Nhân</title>
+    <meta name="description" content="Lịch quản lý công việc cá nhân với nhắc nhở, ghi chú, file đính kèm, sticker và nhiều tính năng mạnh mẽ">
+
+    <!-- Google Fonts CDN -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@400;500;600;700;800&family=Roboto+Serif:ital,opsz,wght@0,8..144,300;0,8..144,400;0,8..144,500;0,8..144,600;0,8..144,700;1,8..144,400&family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Tailwind Config -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'inter': ['Inter', 'sans-serif'],
+                        'playfair': ['Playfair Display', 'serif'],
+                        'roboto-serif': ['Roboto Serif', 'serif'],
+                        'be-vietnam': ['Be Vietnam Pro', 'sans-serif'],
+                    },
+                    colors: {
+                        'brand': {
+                            50: '#eef2ff', 100: '#e0e7ff', 200: '#c7d2fe', 300: '#a5b4fc',
+                            400: '#818cf8', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca',
+                            800: '#3730a3', 900: '#312e81', 950: '#1e1b4b',
+                        },
+                        'surface': {
+                            light: '#fafbfc', dark: '#0f1117',
+                            card: '#ffffff', 'card-dark': '#1a1d28',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        :root {
+            --font-family: 'Inter', sans-serif;
+            --font-size-base: 14px;
+            --column-min-width: 80px;
+            --column-max-width: 1fr;
+            --calendar-scale: 1;
+        }
+
+        body {
+            font-family: var(--font-family);
+            font-size: var(--font-size-base);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        .dark ::-webkit-scrollbar-thumb { background: #475569; }
+
+        /* Animations */
+        @keyframes modalFadeIn { from { opacity: 0; transform: scale(0.95) translateY(-10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+        @keyframes slideInRight { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes todayPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); } 50% { box-shadow: 0 0 0 8px rgba(99, 102, 241, 0); } }
+        @keyframes toastIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes toastOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(20px); } }
+        @keyframes bellRing { 0%, 100% { transform: rotate(0); } 15% { transform: rotate(15deg); } 30% { transform: rotate(-15deg); } 45% { transform: rotate(10deg); } 60% { transform: rotate(-10deg); } 75% { transform: rotate(5deg); } }
+        @keyframes stickerPop { 0% { transform: scale(0) rotate(-30deg); opacity: 0; } 60% { transform: scale(1.2) rotate(5deg); } 100% { transform: scale(1) rotate(0); opacity: 1; } }
+
+        .modal-enter { animation: modalFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+        .task-item-enter { animation: slideInRight 0.3s ease-out; }
+        .overlay { animation: fadeIn 0.2s ease-out; }
+        .today-highlight { animation: todayPulse 2s infinite; }
+        .bell-animate { animation: bellRing 1s ease-in-out; }
+        .sticker-pop { animation: stickerPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+
+        /* Calendar day */
+        .calendar-day { transition: all 0.2s ease; min-height: 110px; }
+        .calendar-day:hover { box-shadow: inset 0 0 0 2px #6366f1; z-index: 10; transform: translateY(-2px); }
+        .task-done { text-decoration: line-through; opacity: 0.5; }
+
+        @media (max-width: 640px) {
+            .calendar-day { min-height: 75px; font-size: 0.7rem; }
+        }
+
+        /* Color picker */
+        input[type="color"] {
+            -webkit-appearance: none; border: none; cursor: pointer;
+            border-radius: 50%; overflow: hidden; width: 32px; height: 32px; padding: 0;
+            border: 3px solid transparent; transition: border-color 0.2s;
+        }
+        input[type="color"]:hover { border-color: #6366f1; }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; }
+
+        /* Toast */
+        .toast { animation: toastIn 0.3s ease-out, toastOut 0.3s ease-in 3s forwards; }
+
+        /* Range slider styling */
+        input[type="range"] { -webkit-appearance: none; height: 6px; border-radius: 3px; background: #d1d5db; outline: none; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: #6366f1; cursor: pointer; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        .dark input[type="range"] { background: #374151; }
+        .dark input[type="range"]::-webkit-slider-thumb { border-color: #1f2937; }
+
+        /* Settings panel */
+        .settings-panel {
+            transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.35s ease;
+            transform: translateX(100%); opacity: 0;
+        }
+        .settings-panel.open { transform: translateX(0); opacity: 1; }
+
+        /* Emoji grid */
+        .emoji-btn { transition: transform 0.15s ease; }
+        .emoji-btn:hover { transform: scale(1.3); }
+        .emoji-btn:active { transform: scale(0.9); }
+
+        /* File attachment area */
+        .drop-zone { border: 2px dashed #d1d5db; transition: all 0.2s; }
+        .drop-zone.drag-over { border-color: #6366f1; background: rgba(99,102,241,0.05); }
+        .dark .drop-zone { border-color: #4b5563; }
+        .dark .drop-zone.drag-over { border-color: #818cf8; background: rgba(129,140,248,0.08); }
+
+        /* Audio player mini */
+        .mini-audio { max-width: 100%; height: 32px; border-radius: 8px; }
+        .mini-audio::-webkit-media-controls-panel { background: #f3f4f6; }
+        .dark .mini-audio::-webkit-media-controls-panel { background: #374151; }
+
+        /* Note indicator on calendar */
+        .note-indicator { position: absolute; top: 4px; right: 4px; width: 8px; height: 8px; border-radius: 50%; background: #f59e0b; }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 dark:from-gray-950 dark:via-gray-900 dark:to-indigo-950/20 text-gray-800 dark:text-gray-100 min-h-screen transition-all duration-300" id="appBody">
+
+    <!-- ==================== TOAST CONTAINER ==================== -->
+    <div id="toast-container" class="fixed bottom-6 right-6 z-[9999] flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- ==================== NOTIFICATION PERMISSION BANNER ==================== -->
+    <div id="notifBanner" class="hidden fixed top-4 left-1/2 -translate-x-1/2 z-[9998] px-5 py-3 rounded-2xl bg-white dark:bg-gray-800 shadow-2xl border border-gray-200 dark:border-gray-700 flex items-center gap-3 text-sm font-medium">
+        <span>🔔</span>
+        <span>Bật thông báo để nhận nhắc nhở công việc</span>
+        <button onclick="requestNotificationPermission()" class="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700 transition-colors">Bật ngay</button>
+        <button onclick="dismissNotifBanner()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">✕</button>
+    </div>
+
+    <!-- ==================== SETTINGS PANEL (Slide from right) ==================== -->
+    <div id="settingsPanel" class="settings-panel fixed top-0 right-0 h-full w-80 sm:w-96 bg-white dark:bg-gray-800 shadow-2xl z-[9997] overflow-y-auto border-l border-gray-200 dark:border-gray-700">
+        <div class="sticky top-0 bg-white dark:bg-gray-800 p-5 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between z-10">
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /></svg>
+                Cài đặt
+            </h3>
+            <button onclick="toggleSettingsPanel()" class="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+        </div>
+        <div class="p-5 space-y-6">
+            <!-- Font Family -->
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Phông chữ</label>
+                <select id="fontFamilySelect" onchange="changeFontFamily(this.value)" class="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                    <option value="'Inter', sans-serif">Inter (Hiện đại, dễ đọc)</option>
+                    <option value="'Be Vietnam Pro', sans-serif">Be Vietnam Pro (Tiếng Việt tối ưu)</option>
+                    <option value="'Playfair Display', serif">Playfair Display (Sang trọng, thanh lịch)</option>
+                    <option value="'Roboto Serif', serif">Roboto Serif (Lịch lãm, chuyên nghiệp)</option>
+                </select>
+            </div>
+
+            <!-- Font Size -->
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    Cỡ chữ: <span id="fontSizeValue" class="text-indigo-600 dark:text-indigo-400">14px</span>
+                </label>
+                <input type="range" id="fontSizeSlider" min="11" max="20" value="14" step="0.5" oninput="changeFontSize(this.value)" class="w-full">
+                <div class="flex justify-between text-xs text-gray-400 mt-1"><span>Nhỏ</span><span>Lớn</span></div>
+            </div>
+
+            <!-- Column Width / Calendar Scale -->
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    Độ rộng cột lịch: <span id="columnScaleValue" class="text-indigo-600 dark:text-indigo-400">100%</span>
+                </label>
+                <input type="range" id="columnScaleSlider" min="60" max="140" value="100" step="5" oninput="changeColumnScale(this.value)" class="w-full">
+                <div class="flex justify-between text-xs text-gray-400 mt-1"><span>Hẹp</span><span>Rộng</span></div>
+            </div>
+
+            <!-- Notification Settings -->
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Thông báo nhắc nhở</label>
+                <div class="space-y-2">
+                    <label class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
+                        <input type="checkbox" id="notifEnabled" checked onchange="saveNotificationSettings()" class="rounded text-indigo-600 focus:ring-indigo-500">
+                        Bật thông báo trước 1 ngày (20:00 & 21:00)
+                    </label>
+                    <label class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
+                        <input type="checkbox" id="notifMotivational" checked onchange="saveNotificationSettings()" class="rounded text-indigo-600 focus:ring-indigo-500">
+                        Kèm câu châm ngôn tạo động lực
+                    </label>
+                </div>
+            </div>
+
+            <!-- Reset Data -->
+            <div class="pt-4 border-t border-gray-200 dark:border-gray-700">
+                <button onclick="resetAllData()" class="w-full py-2.5 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 font-medium text-sm hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors border border-red-200 dark:border-red-800">
+                    🗑 Xóa toàn bộ dữ liệu
+                </button>
+                <p class="text-xs text-gray-400 dark:text-gray-500 mt-2 text-center">Hành động này không thể hoàn tác</p>
+            </div>
+
+            <!-- App Info -->
+            <div class="pt-4 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-400 dark:text-gray-500 space-y-1">
+                <p>📅 Lịch Quản Lý Công Việc v3.0</p>
+                <p>💾 Dữ liệu lưu trong LocalStorage</p>
+                <p>🌐 Truy cập từ mọi thiết bị qua trình duyệt</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== SETTINGS OVERLAY ==================== -->
+    <div id="settingsOverlay" class="hidden fixed inset-0 bg-black/30 z-[9996]" onclick="toggleSettingsPanel()"></div>
+
+    <!-- ==================== MAIN CONTAINER ==================== -->
+    <div class="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6">
+
+        <!-- ==================== HEADER ==================== -->
+        <header class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+            <div class="flex items-center gap-3">
+                <div class="w-11 h-11 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200 dark:shadow-indigo-900/30">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight">Lịch Công Việc</h1>
+                    <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 font-medium">Quản lý thời gian hiệu quả</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 flex-wrap">
+                <!-- Notification test button -->
+                <button onclick="testNotification()" class="p-2.5 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all shadow-sm relative group" title="Kiểm tra thông báo" id="notifTestBtn">
+                    <svg class="w-5 h-5 text-gray-500 dark:text-gray-400 group-hover:text-indigo-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                    <span id="notifDot" class="hidden absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-500 rounded-full border-2 border-white dark:border-gray-800"></span>
+                </button>
+
+                <!-- Dark Mode Toggle -->
+                <button onclick="toggleDarkMode()" class="p-2.5 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all shadow-sm" title="Chế độ tối / sáng">
+                    <svg id="darkIcon" class="w-5 h-5 text-gray-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                    </svg>
+                </button>
+
+                <!-- Settings Button -->
+                <button onclick="toggleSettingsPanel()" class="p-2.5 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all shadow-sm" title="Cài đặt">
+                    <svg class="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    </svg>
+                </button>
+
+                <!-- Stats Badge -->
+                <div class="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm text-sm">
+                    <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                    </svg>
+                    <span id="totalTasksCount" class="font-semibold text-gray-700 dark:text-gray-200">0</span>
+                    <span class="text-gray-500 dark:text-gray-400">công việc</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- ==================== CALENDAR NAVIGATION ==================== -->
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-3 mb-5">
+            <div class="flex items-center gap-2">
+                <button onclick="navigateMonth(-1)" class="p-2.5 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all shadow-sm">
+                    <svg class="w-5 h-5 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                <h2 id="monthYearDisplay" class="text-lg sm:text-xl font-extrabold text-gray-900 dark:text-white min-w-[180px] text-center tracking-tight"></h2>
+                <button onclick="navigateMonth(1)" class="p-2.5 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all shadow-sm">
+                    <svg class="w-5 h-5 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                </button>
+                <button onclick="goToToday()" class="ml-1 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 text-white font-semibold text-sm transition-all shadow-md shadow-indigo-200 dark:shadow-indigo-900/30">
+                    Hôm nay
+                </button>
+            </div>
+
+            <!-- Legend -->
+            <div class="flex items-center gap-2 flex-wrap justify-center">
+                <span class="text-xs text-gray-400 dark:text-gray-500 font-medium">Mức độ:</span>
+                <span class="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 font-semibold border border-red-200 dark:border-red-800"><span class="w-2 h-2 rounded-full bg-red-500"></span> Khẩn</span>
+                <span class="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-yellow-50 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400 font-semibold border border-yellow-200 dark:border-yellow-800"><span class="w-2 h-2 rounded-full bg-yellow-500"></span> TB</span>
+                <span class="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 font-semibold border border-green-200 dark:border-green-800"><span class="w-2 h-2 rounded-full bg-green-500"></span> Nhẹ</span>
+            </div>
+        </div>
+
+        <!-- ==================== WEEKDAY HEADERS ==================== -->
+        <div class="grid grid-cols-7 gap-1.5 sm:gap-2 mb-1" id="weekdayHeaders">
+            <div class="text-center text-xs sm:text-sm font-bold text-red-500 dark:text-red-400 py-2.5 bg-red-50/50 dark:bg-red-900/10 rounded-t-xl">Chủ Nhật</div>
+            <div class="text-center text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-300 py-2.5 bg-gray-50/50 dark:bg-gray-800/30 rounded-t-xl">Thứ Hai</div>
+            <div class="text-center text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-300 py-2.5 bg-gray-50/50 dark:bg-gray-800/30 rounded-t-xl">Thứ Ba</div>
+            <div class="text-center text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-300 py-2.5 bg-gray-50/50 dark:bg-gray-800/30 rounded-t-xl">Thứ Tư</div>
+            <div class="text-center text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-300 py-2.5 bg-gray-50/50 dark:bg-gray-800/30 rounded-t-xl">Thứ Năm</div>
+            <div class="text-center text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-300 py-2.5 bg-gray-50/50 dark:bg-gray-800/30 rounded-t-xl">Thứ Sáu</div>
+            <div class="text-center text-xs sm:text-sm font-bold text-blue-500 dark:text-blue-400 py-2.5 bg-blue-50/50 dark:bg-blue-900/10 rounded-t-xl">Thứ Bảy</div>
+        </div>
+
+        <!-- ==================== CALENDAR GRID ==================== -->
+        <div id="calendarGrid" class="grid grid-cols-7 gap-1.5 sm:gap-2" style="transform: scale(var(--calendar-scale));">
+            <!-- Rendered by JavaScript -->
+        </div>
+
+        <!-- ==================== FOOTER ==================== -->
+        <footer class="mt-6 text-center text-xs text-gray-400 dark:text-gray-600">
+            <p>💡 Nhấp vào một ngày để quản lý công việc • <kbd class="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs">Ctrl+,</kbd> Chuyển tháng • <kbd class="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-xs">Ctrl+T</kbd> Hôm nay</p>
+        </footer>
+    </div>
+
+    <!-- ==================== DAY MODAL OVERLAY ==================== -->
+    <div id="modalOverlay" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 overlay" style="background-color: rgba(0,0,0,0.5); backdrop-filter: blur(3px);">
+        <div id="modalContent" class="modal-enter bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col border border-gray-200 dark:border-gray-700">
+
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between p-5 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-indigo-50/50 to-purple-50/50 dark:from-indigo-900/20 dark:to-purple-900/20">
+                <div>
+                    <h3 id="modalTitle" class="text-lg font-extrabold text-gray-900 dark:text-white"></h3>
+                    <p id="modalDate" class="text-sm text-gray-500 dark:text-gray-400 font-medium"></p>
+                </div>
+                <div class="flex items-center gap-1">
+                    <!-- Note indicator -->
+                    <span id="modalNoteIndicator" class="hidden text-xs px-2 py-1 rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 font-semibold border border-yellow-300 dark:border-yellow-700">📝 Có ghi chú</span>
+                    <button onclick="closeModal()" class="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                        <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-y-auto">
+                <!-- Day Note Section -->
+                <div class="p-5 border-b border-gray-100 dark:border-gray-700 bg-yellow-50/30 dark:bg-yellow-900/5">
+                    <label class="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                        📝 Ghi chú cho ngày này
+                        <span class="text-xs font-normal text-gray-400">(đánh dấu ngày quan trọng, sự kiện đặc biệt...)</span>
+                    </label>
+                    <textarea id="dayNoteInput" rows="2" placeholder="VD: Hôm nay có cuộc họp quan trọng với đối tác lúc 10h sáng. Đừng quên chuẩn bị tài liệu!"
+                              class="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm resize-none"
+                              oninput="autoSaveDayNote()"></textarea>
+                </div>
+
+                <!-- Add Task Form -->
+                <div class="p-5 border-b border-gray-100 dark:border-gray-700 bg-gray-50/30 dark:bg-gray-800/30">
+                    <div class="flex flex-col gap-3">
+                        <div class="flex flex-col sm:flex-row gap-2">
+                            <input type="text" id="taskInput" placeholder="Tên công việc mới..."
+                                   class="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm"
+                                   onkeydown="if(event.key === 'Enter') addTask()">
+                            <div class="flex gap-2">
+                                <input type="time" id="taskTimeInput"
+                                       class="w-28 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm"
+                                       title="Thời gian">
+                                <!-- Emoji/Sticker Button -->
+                                <button onclick="toggleEmojiPicker()" type="button"
+                                        class="px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-all text-sm font-semibold"
+                                        title="Chèn sticker/emoji">😊</button>
+                            </div>
+                        </div>
+
+                        <!-- Emoji Picker Popup -->
+                        <div id="emojiPicker" class="hidden p-3 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 shadow-lg">
+                            <div class="grid grid-cols-10 sm:grid-cols-12 gap-1">
+                                <!-- Frequently used emojis -->
+                                <script>
+                                    const EMOJI_LIST = [
+                                        '😀','😂','🤣','😍','🥰','😘','😎','🤩','😤','😢','😡','🥺','😱','🤗','🫡',
+                                        '👍','👎','👏','🙌','💪','🤝','✍️','🎯','⚡','🔥','⭐','🌟','💯','✅','❌',
+                                        '📅','📌','📝','📎','📊','📈','🎓','🏆','💼','🏠','🚗','✈️','🏖️','🎉','🎂',
+                                        '💡','💰','⏰','🔔','❤️','💙','💚','💛','🧡','💜','🖤','🤍','💖','🎵','🎶',
+                                        '☕','🍕','🍔','🌮','🍣','🎂','🍩','🏋️','🧘','🏃','📚','💻','📱','🖥️','⌨️',
+                                        '🌅','🌙','☀️','⛅','🌧️','❄️','🌸','🌺','🍀','🎄','🐶','🐱','🦊','🐼','🦄',
+                                    ];
+                                </script>
+                                <div id="emojiGrid"></div>
+                            </div>
+                        </div>
+
+                        <!-- Color Picker Row -->
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="text-xs text-gray-500 dark:text-gray-400 font-medium mr-1">Màu:</span>
+                            <label class="cursor-pointer"><input type="radio" name="taskColor" value="#EF4444" checked class="hidden peer"><span class="w-7 h-7 rounded-full bg-red-500 block border-2 border-transparent peer-checked:border-gray-800 dark:peer-checked:border-white peer-checked:scale-115 transition-all shadow-md hover:scale-110" title="Khẩn cấp - Đỏ"></span></label>
+                            <label class="cursor-pointer"><input type="radio" name="taskColor" value="#F97316" class="hidden peer"><span class="w-7 h-7 rounded-full bg-orange-500 block border-2 border-transparent peer-checked:border-gray-800 dark:peer-checked:border-white peer-checked:scale-115 transition-all shadow-md hover:scale-110" title="Quan trọng - Cam"></span></label>
+                            <label class="cursor-pointer"><input type="radio" name="taskColor" value="#EAB308" class="hidden peer"><span class="w-7 h-7 rounded-full bg-yellow-500 block border-2 border-transparent peer-checked:border-gray-800 dark:peer-checked:border-white peer-checked:scale-115 transition-all shadow-md hover:scale-110" title="Trung bình - Vàng"></span></label>
+                            <label class="cursor-pointer"><input type="radio" name="taskColor" value="#22C55E" class="hidden peer"><span class="w-7 h-7 rounded-full bg-green-500 block border-2 border-transparent peer-checked:border-gray-800 dark:peer-checked:border-white peer-checked:scale-115 transition-all shadow-md hover:scale-110" title="Giải trí - Xanh lá"></span></label>
+                            <label class="cursor-pointer"><input type="radio" name="taskColor" value="#3B82F6" class="hidden peer"><span class="w-7 h-7 rounded-full bg-blue-500 block border-2 border-transparent peer-checked:border-gray-800 dark:peer-checked:border-white peer-checked:scale-115 transition-all shadow-md hover:scale-110" title="Cá nhân - Xanh dương"></span></label>
+                            <label class="cursor-pointer"><input type="radio" name="taskColor" value="#A855F7" class="hidden peer"><span class="w-7 h-7 rounded-full bg-purple-500 block border-2 border-transparent peer-checked:border-gray-800 dark:peer-checked:border-white peer-checked:scale-115 transition-all shadow-md hover:scale-110" title="Học tập - Tím"></span></label>
+                            <label class="cursor-pointer"><input type="radio" name="taskColor" value="#EC4899" class="hidden peer"><span class="w-7 h-7 rounded-full bg-pink-500 block border-2 border-transparent peer-checked:border-gray-800 dark:peer-checked:border-white peer-checked:scale-115 transition-all shadow-md hover:scale-110" title="Sức khỏe - Hồng"></span></label>
+                            <label class="cursor-pointer"><input type="radio" name="taskColor" value="#14B8A6" class="hidden peer"><span class="w-7 h-7 rounded-full bg-teal-500 block border-2 border-transparent peer-checked:border-gray-800 dark:peer-checked:border-white peer-checked:scale-115 transition-all shadow-md hover:scale-110" title="Tài chính - Xanh ngọc"></span></label>
+                            <label class="cursor-pointer"><input type="radio" name="taskColor" value="#6366F1" class="hidden peer"><span class="w-7 h-7 rounded-full bg-indigo-500 block border-2 border-transparent peer-checked:border-gray-800 dark:peer-checked:border-white peer-checked:scale-115 transition-all shadow-md hover:scale-110" title="Chung - Chàm"></span></label>
+                            <span class="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></span>
+                            <input type="color" id="customColorPicker" value="#6366F1" class="cursor-pointer" title="Màu tùy chỉnh" onchange="selectCustomColor()">
+                        </div>
+
+                        <!-- File Attachment Section -->
+                        <div id="fileAttachmentsPreview" class="flex flex-wrap gap-2"></div>
+                        <div class="flex gap-2 flex-wrap">
+                            <label class="cursor-pointer px-3 py-2 rounded-xl bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 transition-all text-xs font-medium text-gray-600 dark:text-gray-300 flex items-center gap-1">
+                                📷 Ảnh <input type="file" accept="image/*" multiple class="hidden" onchange="handleFileSelect(event, 'image')">
+                            </label>
+                            <label class="cursor-pointer px-3 py-2 rounded-xl bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 transition-all text-xs font-medium text-gray-600 dark:text-gray-300 flex items-center gap-1">
+                                🎵 Âm thanh <input type="file" accept="audio/*" multiple class="hidden" onchange="handleFileSelect(event, 'audio')">
+                            </label>
+                            <span class="text-xs text-gray-400 dark:text-gray-500 flex items-center">File sẽ được đính kèm vào công việc</span>
+                        </div>
+
+                        <button onclick="addTask()" class="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold text-sm transition-all shadow-lg shadow-indigo-200 dark:shadow-indigo-900/30 flex items-center justify-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                            Thêm công việc
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Task List -->
+                <div class="p-5">
+                    <h4 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Danh sách công việc</h4>
+                    <div id="taskList" class="flex flex-col gap-2">
+                        <!-- Rendered by JavaScript -->
+                    </div>
+                    <div id="emptyState" class="flex flex-col items-center justify-center py-12 text-gray-400 dark:text-gray-500 hidden">
+                        <svg class="w-20 h-20 mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                        <p class="text-sm font-medium">Chưa có công việc nào</p>
+                        <p class="text-xs mt-1">Thêm công việc mới ở phía trên</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== EDIT TASK MODAL ==================== -->
+    <div id="editOverlay" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 overlay" style="background-color: rgba(0,0,0,0.4);">
+        <div class="modal-enter bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 border border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-extrabold text-gray-900 dark:text-white mb-4">✏️ Chỉnh sửa công việc</h3>
+            <input type="hidden" id="editTaskId">
+            <div class="flex flex-col gap-3">
+                <input type="text" id="editTaskText"
+                       class="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm"
+                       placeholder="Tên công việc">
+                <input type="time" id="editTaskTime"
+                       class="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span class="text-xs text-gray-500 font-medium">Màu:</span>
+                    <label class="cursor-pointer"><input type="radio" name="editTaskColor" value="#EF4444" class="hidden peer"><span class="w-6 h-6 rounded-full bg-red-500 block border-2 border-transparent peer-checked:border-gray-800 dark:peer-checked:border-white peer-checked:scale-115 transition-all shadow-sm"></span></label>
+                    <label class="cursor-pointer"><input type="radio" name="editTaskColor" value="#F97316" class="hidden peer"><span class="w-6 h-6 rounded-full bg-orange-500 block border-2 border-transparent peer-checked:border-gray-800 dark:peer-checked:border-white peer-checked:scale-115 transition-all shadow-sm"></span></label>
+                    <label class="cursor-pointer"><input type="radio" name="editTaskColor" value="#EAB308" class="hidden peer"><span class="w-6 h-6 rounded-full bg-yellow-500 block border-2 border-transparent peer-checked:border-gray-800 dark:peer-checked:border-white peer-checked:scale-115 transition-all shadow-sm"></span></label>
+                    <label class="cursor-pointer"><input type="radio" name="editTaskColor" value="#22C55E" class="hidden peer"><span class="w-6 h-6 rounded-full bg-green-500 block border-2 border-transparent peer-checked:border-gray-800 dark:peer-checked:border-white peer-checked:scale-115 transition-all shadow-sm"></span></label>
+                    <label class="cursor-pointer"><input type="radio" name="editTaskColor" value="#3B82F6" class="hidden peer"><span class="w-6 h-6 rounded-full bg-blue-500 block border-2 border-transparent peer-checked:border-gray-800 dark:peer-checked:border-white peer-checked:scale-115 transition-all shadow-sm"></span></label>
+                    <label class="cursor-pointer"><input type="radio" name="editTaskColor" value="#A855F7" class="hidden peer"><span class="w-6 h-6 rounded-full bg-purple-500 block border-2 border-transparent peer-checked:border-gray-800 dark:peer-checked:border-white peer-checked:scale-115 transition-all shadow-sm"></span></label>
+                    <label class="cursor-pointer"><input type="radio" name="editTaskColor" value="#EC4899" class="hidden peer"><span class="w-6 h-6 rounded-full bg-pink-500 block border-2 border-transparent peer-checked:border-gray-800 dark:peer-checked:border-white peer-checked:scale-115 transition-all shadow-sm"></span></label>
+                    <label class="cursor-pointer"><input type="radio" name="editTaskColor" value="#14B8A6" class="hidden peer"><span class="w-6 h-6 rounded-full bg-teal-500 block border-2 border-transparent peer-checked:border-gray-800 dark:peer-checked:border-white peer-checked:scale-115 transition-all shadow-sm"></span></label>
+                    <label class="cursor-pointer"><input type="radio" name="editTaskColor" value="#6366F1" class="hidden peer"><span class="w-6 h-6 rounded-full bg-indigo-500 block border-2 border-transparent peer-checked:border-gray-800 dark:peer-checked:border-white peer-checked:scale-115 transition-all shadow-sm"></span></label>
+                </div>
+                <div class="flex gap-2 mt-2">
+                    <button onclick="saveEditTask()" class="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold text-sm transition-all shadow-md">Lưu</button>
+                    <button onclick="closeEditModal()" class="flex-1 py-2.5 rounded-xl bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-semibold text-sm transition-all">Hủy</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== FULL IMAGE VIEWER ==================== -->
+    <div id="imageViewer" class="hidden fixed inset-0 z-[70] flex items-center justify-center p-4 overlay" style="background-color: rgba(0,0,0,0.85);" onclick="this.classList.add('hidden')">
+        <img id="imageViewerImg" src="" class="max-w-full max-h-[90vh] rounded-2xl shadow-2xl" onclick="event.stopPropagation()">
+        <button class="absolute top-4 right-4 text-white text-3xl hover:text-gray-300 transition-colors" onclick="document.getElementById('imageViewer').classList.add('hidden')">&times;</button>
+    </div>
+
+    <script>
+        // ==================== DATA LAYER ====================
+        const STORAGE_KEY = 'pctm_v3_tasks';
+        const NOTES_KEY = 'pctm_v3_notes';
+        const SETTINGS_KEY = 'pctm_v3_settings';
+        const ATTACHMENTS_KEY = 'pctm_v3_files';
+
+        let currentMonth = new Date().getMonth();
+        let currentYear = new Date().getFullYear();
+        let selectedDateKey = null;
+        let tasksData = {};
+        let notesData = {};
+        let pendingFiles = []; // Files waiting to be attached to new task
+        let notificationInterval = null;
+        let lastNotifiedTasks = {}; // Track which tasks we've already notified for
+
+        // ==================== MOTIVATIONAL QUOTES ====================
+        const MOTIVATIONAL_QUOTES = [
+            '"Thành công không phải là đích đến cuối cùng, thất bại không phải là điều chết người: Lòng can đảm tiếp tục mới là điều quan trọng." — Winston Churchill',
+            '"Cách duy nhất để làm việc lớn là yêu những gì bạn làm." — Steve Jobs',
+            '"Đừng xem đồng hồ; hãy làm những gì nó làm. Hãy tiếp tục tiến lên." — Sam Levenson',
+            '"Sự chăm chỉ đánh bại tài năng khi tài năng không làm việc chăm chỉ." — Tim Notke',
+            '"Hãy làm hôm nay những gì người khác không làm, để ngày mai bạn có thể sống như người khác không thể." — Khuyết danh',
+            '"Mỗi sáng thức dậy, bạn có hai lựa chọn: tiếp tục ngủ và mơ mộng, hoặc thức dậy và theo đuổi ước mơ." — Khuyết danh',
+            '"Không có gì là không thể với một trái tim sẵn sàng." — Khuyết danh',
+            '"Thành công là tổng hợp của những nỗ lực nhỏ được lặp đi lặp lại ngày này qua ngày khác." — Robert Collier',
+            '"Người ta không mua thành công, họ thuê nó bằng sự chăm chỉ." — Khuyết danh',
+            '"Hãy luôn nhớ: Bạn dũng cảm hơn bạn nghĩ, mạnh mẽ hơn bạn thấy, và thông minh hơn bạn tưởng." — A.A. Milne',
+            '"Mỗi ngày là một cơ hội mới để thay đổi cuộc đời bạn." — Khuyết danh',
+            '"Đừng bao giờ từ bỏ ước mơ chỉ vì thời gian để thực hiện nó quá lâu. Thời gian sẽ trôi qua dù bạn có làm gì đi nữa." — Earl Nightingale',
+            '"Sự khác biệt giữa bình thường và phi thường chỉ là một chữ "thêm" nhỏ." — Jimmy Johnson',
+            '"Hãy sống như thể bạn sẽ chết vào ngày mai. Hãy học như thể bạn sẽ sống mãi mãi." — Mahatma Gandhi',
+            '"Chặng đường ngàn dặm bắt đầu từ một bước chân." — Lão Tử',
+        ];
+
+        function getRandomQuote() {
+            return MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)];
+        }
+
+        // ==================== INITIALIZATION ====================
+        function init() {
+            loadAllData();
+            loadSettings();
+            setupEmojiPicker();
+            loadNotificationSettings();
+            renderCalendar();
+            updateTotalTasksCount();
+            setupNotificationChecker();
+            checkNotifPermissionOnLoad();
+            // Check for upcoming tasks notifications every 30 seconds
+            notificationInterval = setInterval(checkUpcomingTaskNotifications, 30000);
+            // Also check on load
+            setTimeout(checkUpcomingTaskNotifications, 5000);
+        }
+
+        function loadAllData() {
+            try {
+                const stored = localStorage.getItem(STORAGE_KEY);
+                tasksData = stored ? JSON.parse(stored) : {};
+            } catch (e) { tasksData = {}; console.error('Lỗi đọc tasks:', e); }
+
+            try {
+                const storedNotes = localStorage.getItem(NOTES_KEY);
+                notesData = storedNotes ? JSON.parse(storedNotes) : {};
+            } catch (e) { notesData = {}; console.error('Lỗi đọc notes:', e); }
+
+            try {
+                const storedNotifications = localStorage.getItem('pctm_v3_notified');
+                lastNotifiedTasks = storedNotifications ? JSON.parse(storedNotifications) : {};
+            } catch (e) { lastNotifiedTasks = {}; }
+        }
+
+        function saveTasksData() {
+            try { localStorage.setItem(STORAGE_KEY, JSON.stringify(tasksData)); }
+            catch (e) { showToast('Lỗi lưu dữ liệu! Bộ nhớ có thể đã đầy.', 'error'); }
+        }
+
+        function saveNotesData() {
+            try { localStorage.setItem(NOTES_KEY, JSON.stringify(notesData)); }
+            catch (e) {}
+        }
+
+        function saveNotifiedData() {
+            try { localStorage.setItem('pctm_v3_notified', JSON.stringify(lastNotifiedTasks)); }
+            catch (e) {}
+        }
+
+        // ==================== SETTINGS ====================
+        function loadSettings() {
+            let settings = {};
+            try {
+                const stored = localStorage.getItem(SETTINGS_KEY);
+                settings = stored ? JSON.parse(stored) : {};
+            } catch (e) {}
+
+            const font = settings.fontFamily || "'Inter', sans-serif";
+            const fontSize = settings.fontSize || 14;
+            const columnScale = settings.columnScale || 100;
+
+            document.getElementById('fontFamilySelect').value = font;
+            document.getElementById('fontSizeSlider').value = fontSize;
+            document.getElementById('columnScaleSlider').value = columnScale;
+            document.getElementById('fontSizeValue').textContent = fontSize + 'px';
+            document.getElementById('columnScaleValue').textContent = columnScale + '%';
+
+            document.documentElement.style.setProperty('--font-family', font);
+            document.documentElement.style.setProperty('--font-size-base', fontSize + 'px');
+            document.documentElement.style.setProperty('--calendar-scale', columnScale / 100);
+
+            // Load dark mode
+            const savedDark = localStorage.getItem('pctm_v3_dark');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const isDark = savedDark !== null ? savedDark === 'true' : prefersDark;
+            if (isDark) document.documentElement.classList.add('dark');
+            else document.documentElement.classList.remove('dark');
+            updateDarkModeIcon();
+        }
+
+        function saveAllSettings() {
+            const settings = {
+                fontFamily: document.getElementById('fontFamilySelect').value,
+                fontSize: parseFloat(document.getElementById('fontSizeSlider').value),
+                columnScale: parseInt(document.getElementById('columnScaleSlider').value),
+            };
+            localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+        }
+
+        function changeFontFamily(value) {
+            document.documentElement.style.setProperty('--font-family', value);
+            document.getElementById('appBody').style.fontFamily = value;
+            saveAllSettings();
+            showToast('Đã đổi phông chữ!', 'success');
+        }
+
+        function changeFontSize(value) {
+            document.getElementById('fontSizeValue').textContent = value + 'px';
+            document.documentElement.style.setProperty('--font-size-base', value + 'px');
+            saveAllSettings();
+        }
+
+        function changeColumnScale(value) {
+            document.getElementById('columnScaleValue').textContent = value + '%';
+            document.documentElement.style.setProperty('--calendar-scale', value / 100);
+            saveAllSettings();
+        }
+
+        function toggleSettingsPanel() {
+            const panel = document.getElementById('settingsPanel');
+            const overlay = document.getElementById('settingsOverlay');
+            const isOpen = panel.classList.contains('open');
+            if (isOpen) {
+                panel.classList.remove('open');
+                overlay.classList.add('hidden');
+            } else {
+                panel.classList.add('open');
+                overlay.classList.remove('hidden');
+            }
+        }
+
+        // ==================== DARK MODE ====================
+        function toggleDarkMode() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('pctm_v3_dark', isDark);
+            updateDarkModeIcon();
+        }
+
+        function updateDarkModeIcon() {
+            const icon = document.getElementById('darkIcon');
+            if (!icon) return;
+            const isDark = document.documentElement.classList.contains('dark');
+            if (isDark) {
+                icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />';
+                icon.classList.add('text-yellow-400');
+            } else {
+                icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />';
+                icon.classList.remove('text-yellow-400');
+            }
+        }
+
+        // ==================== NOTIFICATIONS ====================
+        function loadNotificationSettings() {
+            const notifEnabled = localStorage.getItem('pctm_v3_notif_enabled') !== 'false';
+            const notifMotivational = localStorage.getItem('pctm_v3_notif_motiv') !== 'false';
+            document.getElementById('notifEnabled').checked = notifEnabled;
+            document.getElementById('notifMotivational').checked = notifMotivational;
+        }
+
+        function saveNotificationSettings() {
+            const enabled = document.getElementById('notifEnabled').checked;
+            const motivational = document.getElementById('notifMotivational').checked;
+            localStorage.setItem('pctm_v3_notif_enabled', enabled);
+            localStorage.setItem('pctm_v3_notif_motiv', motivational);
+            if (enabled && Notification.permission === 'default') {
+                requestNotificationPermission();
+            }
+        }
+
+        function checkNotifPermissionOnLoad() {
+            if (Notification.permission === 'granted') {
+                document.getElementById('notifDot').classList.add('hidden');
+                document.getElementById('notifBanner').classList.add('hidden');
+            } else if (Notification.permission === 'default') {
+                document.getElementById('notifDot').classList.remove('hidden');
+                document.getElementById('notifBanner').classList.remove('hidden');
+            } else {
+                document.getElementById('notifDot').classList.remove('hidden');
+            }
+        }
+
+        async function requestNotificationPermission() {
+            try {
+                const permission = await Notification.requestPermission();
+                if (permission === 'granted') {
+                    document.getElementById('notifDot').classList.add('hidden');
+                    document.getElementById('notifBanner').classList.add('hidden');
+                    showToast('Thông báo đã được bật! Bạn sẽ nhận nhắc nhở lúc 20:00 & 21:00.', 'success');
+                    // Test notification
+                    new Notification('✅ Thông báo đã sẵn sàng', {
+                        body: 'Bạn sẽ nhận nhắc nhở công việc trước 1 ngày vào lúc 20:00 và 21:00.',
+                        icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">📅</text></svg>',
+                    });
+                }
+            } catch (e) {
+                console.log('Notification permission:', e);
+            }
+        }
+
+        function dismissNotifBanner() {
+            document.getElementById('notifBanner').classList.add('hidden');
+        }
+
+        function testNotification() {
+            if (Notification.permission === 'granted') {
+                const quote = getRandomQuote();
+                new Notification('🧪 Kiểm tra thông báo', {
+                    body: 'Nếu bạn thấy tin nhắn này, thông báo đang hoạt động tốt!\n\n' + quote,
+                    icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🔔</text></svg>',
+                    requireInteraction: true,
+                });
+                showToast('Đã gửi thông báo thử nghiệm!', 'success');
+            } else if (Notification.permission === 'default') {
+                requestNotificationPermission();
+            } else {
+                showToast('Thông báo đã bị chặn. Vui lòng mở khóa trong cài đặt trình duyệt.', 'warning');
+            }
+        }
+
+        function checkUpcomingTaskNotifications() {
+            const notifEnabled = localStorage.getItem('pctm_v3_notif_enabled') !== 'false';
+            if (!notifEnabled) return;
+            if (Notification.permission !== 'granted') return;
+
+            const now = new Date();
+            const currentHour = now.getHours();
+            const currentMinute = now.getMinutes();
+
+            // Check if it's notification time (20:00-20:05 or 21:00-21:05)
+            const isNotifTime1 = currentHour === 20 && currentMinute >= 0 && currentMinute <= 5;
+            const isNotifTime2 = currentHour === 21 && currentMinute >= 0 && currentMinute <= 5;
+            if (!isNotifTime1 && !isNotifTime2) return;
+
+            // Get tomorrow's date
+            const tomorrow = new Date(now);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            const tomorrowKey = getDateKey(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate());
+
+            const tomorrowTasks = tasksData[tomorrowKey] || [];
+            const undoneTasks = tomorrowTasks.filter(t => !t.done);
+
+            if (undoneTasks.length === 0) return;
+
+            // Check if we already notified for this date+hour
+            const notifyKey = `${tomorrowKey}_${currentHour}`;
+            const todayStr = getTodayKey();
+            // Reset lastNotified if it's a new day
+            const lastResetDate = localStorage.getItem('pctm_v3_notif_reset_date');
+            if (lastResetDate !== todayStr) {
+                lastNotifiedTasks = {};
+                localStorage.setItem('pctm_v3_notif_reset_date', todayStr);
+            }
+
+            if (lastNotifiedTasks[notifyKey]) return;
+
+            // Mark as notified
+            lastNotifiedTasks[notifyKey] = true;
+            saveNotifiedData();
+
+            const taskList = undoneTasks.map(t => `• ${t.time ? t.time + ' - ' : ''}${t.text}`).join('\n');
+            const motivational = localStorage.getItem('pctm_v3_notif_motiv') !== 'false';
+            const quote = motivational ? '\n\n' + getRandomQuote() : '';
+            const timeLabel = currentHour === 20 ? 'lần 1 (20:00)' : 'lần 2 (21:00)';
+
+            try {
+                new Notification(`📅 Ngày mai (${formatDisplayDateShort(tomorrowKey)}) có ${undoneTasks.length} việc cần làm - Nhắc ${timeLabel}`, {
+                    body: `${taskList}${quote}`,
+                    icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">⏰</text></svg>',
+                    requireInteraction: true,
+                    tag: notifyKey,
+                });
+            } catch (e) {
+                console.log('Notification send error:', e);
+            }
+        }
+
+        function setupNotificationChecker() {
+            // Also check every minute
+            if (notificationInterval) clearInterval(notificationInterval);
+            notificationInterval = setInterval(checkUpcomingTaskNotifications, 60000);
+        }
+
+        function formatDisplayDateShort(dateKey) {
+            const parts = dateKey.split('-');
+            const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+            return d.toLocaleDateString('vi-VN', { weekday: 'short', month: 'numeric', day: 'numeric' });
+        }
+
+        // ==================== EMOJI / STICKER PICKER ====================
+        function setupEmojiPicker() {
+            const grid = document.getElementById('emojiGrid');
+            let html = '';
+            EMOJI_LIST.forEach(emoji => {
+                html += `<button class="emoji-btn text-lg p-1.5 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg transition-all" onclick="insertEmoji('${emoji}')" title="Chèn sticker">${emoji}</button>`;
+            });
+            grid.innerHTML = html;
+        }
+
+        function toggleEmojiPicker() {
+            const picker = document.getElementById('emojiPicker');
+            picker.classList.toggle('hidden');
+            if (!picker.classList.contains('hidden')) {
+                picker.style.animation = 'slideInRight 0.2s ease-out';
+            }
+        }
+
+        function insertEmoji(emoji) {
+            const input = document.getElementById('taskInput');
+            input.value += emoji;
+            input.focus();
+            // Keep picker open for multiple selections
+        }
+
+        // ==================== FILE HANDLING ====================
+        function handleFileSelect(event, type) {
+            const files = Array.from(event.target.files);
+            files.forEach(file => {
+                if (file.size > 5 * 1024 * 1024) {
+                    showToast(`File "${file.name}" quá lớn (>5MB). Vui lòng chọn file nhỏ hơn.`, 'warning');
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    pendingFiles.push({
+                        name: file.name,
+                        type: type,
+                        mimeType: file.type,
+                        data: e.target.result,
+                    });
+                    renderPendingFiles();
+                };
+                reader.readAsDataURL(file);
+            });
+            event.target.value = '';
+        }
+
+        function renderPendingFiles() {
+            const container = document.getElementById('fileAttachmentsPreview');
+            let html = '';
+            pendingFiles.forEach((file, index) => {
+                const icon = file.type === 'image' ? '🖼️' : '🎵';
+                html += `
+                    <div class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 text-xs font-medium text-indigo-700 dark:text-indigo-300 sticker-pop">
+                        ${icon} ${escapeHtml(file.name)}
+                        <button onclick="removePendingFile(${index})" class="text-red-500 hover:text-red-700 font-bold ml-1">&times;</button>
+                    </div>`;
+            });
+            container.innerHTML = html;
+        }
+
+        function removePendingFile(index) {
+            pendingFiles.splice(index, 1);
+            renderPendingFiles();
+        }
+
+        // ==================== CALENDAR RENDERING ====================
+        function getDateKey(year, month, day) {
+            return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        }
+
+        function getTodayKey() {
+            const now = new Date();
+            return getDateKey(now.getFullYear(), now.getMonth(), now.getDate());
+        }
+
+        function formatDisplayDate(dateKey) {
+            const parts = dateKey.split('-');
+            const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            return d.toLocaleDateString('vi-VN', options);
+        }
+
+        function navigateMonth(delta) {
+            currentMonth += delta;
+            if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+            else if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+            renderCalendar();
+        }
+
+        function goToToday() {
+            const now = new Date();
+            currentMonth = now.getMonth();
+            currentYear = now.getFullYear();
+            renderCalendar();
+        }
+
+        function renderCalendar() {
+            const grid = document.getElementById('calendarGrid');
+            const display = document.getElementById('monthYearDisplay');
+
+            const monthNames = [
+                'Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6',
+                'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'
+            ];
+            display.textContent = `${monthNames[currentMonth]} ${currentYear}`;
+
+            const todayKey = getTodayKey();
+            const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+            const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+            const daysInPrevMonth = new Date(currentYear, currentMonth, 0).getDate();
+
+            let html = '';
+
+            // Previous month trailing days
+            for (let i = firstDay - 1; i >= 0; i--) {
+                const day = daysInPrevMonth - i;
+                const prevMonth = currentMonth - 1 < 0 ? 11 : currentMonth - 1;
+                const prevYear = currentMonth - 1 < 0 ? currentYear - 1 : currentYear;
+                const dateKey = getDateKey(prevYear, prevMonth, day);
+                html += renderDayCell(day, dateKey, true);
+            }
+
+            // Current month days
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateKey = getDateKey(currentYear, currentMonth, day);
+                const isToday = dateKey === todayKey;
+                html += renderDayCell(day, dateKey, false, isToday);
+            }
+
+            // Next month leading days
+            const totalCells = firstDay + daysInMonth;
+            const remainingCells = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
+            for (let day = 1; day <= remainingCells; day++) {
+                const nextMonth = currentMonth + 1 > 11 ? 0 : currentMonth + 1;
+                const nextYear = currentMonth + 1 > 11 ? currentYear + 1 : currentYear;
+                const dateKey = getDateKey(nextYear, nextMonth, day);
+                html += renderDayCell(day, dateKey, true);
+            }
+
+            grid.innerHTML = html;
+        }
+
+        function renderDayCell(day, dateKey, isOtherMonth, isToday = false) {
+            const tasks = tasksData[dateKey] || [];
+            const taskCount = tasks.length;
+            const doneCount = tasks.filter(t => t.done).length;
+            const hasNote = notesData[dateKey] && notesData[dateKey].trim().length > 0;
+
+            let bgClass = 'bg-white dark:bg-gray-800';
+            if (isOtherMonth) bgClass = 'bg-gray-100/60 dark:bg-gray-800/40 opacity-45';
+            if (isToday) bgClass += ' ring-2 ring-indigo-500 dark:ring-indigo-400 today-highlight';
+
+            // Task pills
+            let taskPills = '';
+            const maxVisible = 3;
+            const visibleTasks = tasks.slice(0, maxVisible);
+            const remainingCount = tasks.length - maxVisible;
+
+            visibleTasks.forEach(t => {
+                const taskClass = t.done ? 'task-done' : '';
+                taskPills += `
+                    <div class="text-[10px] sm:text-xs px-1.5 py-0.5 rounded-md truncate ${taskClass} font-semibold"
+                         style="background: ${t.color}18; color: ${t.color}; border-left: 3px solid ${t.color};"
+                         title="${t.time ? t.time + ' - ' : ''}${escapeHtml(t.text)}${t.done ? ' ✓' : ''}">
+                        ${t.time ? '<span class="font-bold">' + escapeHtml(t.time) + '</span> ' : ''}${escapeHtml(t.text)}
+                    </div>`;
+            });
+
+            if (remainingCount > 0) {
+                taskPills += `<div class="text-[10px] text-gray-500 dark:text-gray-400 px-1.5 font-medium">+${remainingCount} việc nữa</div>`;
+            }
+
+            // Progress bar
+            let progressBar = '';
+            if (taskCount > 0 && doneCount > 0) {
+                const pct = Math.round((doneCount / taskCount) * 100);
+                progressBar = `
+                    <div class="absolute bottom-0 left-0 right-0 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-b-xl overflow-hidden">
+                        <div class="h-full bg-gradient-to-r from-green-400 to-emerald-500 transition-all duration-500" style="width: ${pct}%"></div>
+                    </div>`;
+            }
+
+            const dayClasses = isToday
+                ? 'font-extrabold text-white bg-gradient-to-br from-indigo-600 to-purple-600 rounded-full w-7 h-7 flex items-center justify-center shadow-md'
+                : '';
+
+            const noteDot = hasNote ? '<span class="note-indicator" title="Có ghi chú"></span>' : '';
+
+            return `
+                <div class="calendar-day ${bgClass} rounded-xl border border-gray-200 dark:border-gray-700 p-1.5 sm:p-2 cursor-pointer relative overflow-hidden transition-all group"
+                     onclick="openDayModal('${dateKey}')" data-date="${dateKey}">
+                    ${noteDot}
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="day-number text-xs sm:text-sm font-bold ${isOtherMonth ? 'text-gray-400 dark:text-gray-600' : 'text-gray-700 dark:text-gray-300'}">
+                            <span class="${dayClasses}">${day}</span>
+                        </span>
+                        ${taskCount > 0 ? `<span class="text-[10px] font-bold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-full">${taskCount}</span>` : ''}
+                    </div>
+                    <div class="flex flex-col gap-0.5 overflow-hidden" style="max-height: 70px;">
+                        ${taskPills}
+                    </div>
+                    ${progressBar}
+                </div>`;
+        }
+
+        // ==================== MODAL MANAGEMENT ====================
+        function openDayModal(dateKey) {
+            selectedDateKey = dateKey;
+            document.getElementById('modalTitle').textContent = 'Công việc';
+            document.getElementById('modalDate').textContent = formatDisplayDate(dateKey);
+            document.getElementById('taskInput').value = '';
+            document.getElementById('taskTimeInput').value = '';
+            document.getElementById('emojiPicker').classList.add('hidden');
+            pendingFiles = [];
+            renderPendingFiles();
+
+            // Load day note
+            const note = notesData[dateKey] || '';
+            document.getElementById('dayNoteInput').value = note;
+            const noteIndicator = document.getElementById('modalNoteIndicator');
+            if (note.trim()) noteIndicator.classList.remove('hidden');
+            else noteIndicator.classList.add('hidden');
+
+            // Reset color
+            const defaultColor = document.querySelector('input[name="taskColor"][value="#EF4444"]');
+            if (defaultColor) defaultColor.checked = true;
+            document.getElementById('customColorPicker').value = '#6366F1';
+
+            document.getElementById('modalOverlay').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            renderTaskList();
+            setTimeout(() => document.getElementById('taskInput').focus(), 300);
+        }
+
+        function closeModal() {
+            document.getElementById('modalOverlay').classList.add('hidden');
+            document.getElementById('emojiPicker').classList.add('hidden');
+            document.body.style.overflow = '';
+            pendingFiles = [];
+            renderPendingFiles();
+            // Save note before closing
+            autoSaveDayNote();
+            selectedDateKey = null;
+            renderCalendar();
+            updateTotalTasksCount();
+        }
+
+        function autoSaveDayNote() {
+            if (!selectedDateKey) return;
+            const note = document.getElementById('dayNoteInput').value;
+            if (note.trim()) {
+                notesData[selectedDateKey] = note;
+            } else {
+                delete notesData[selectedDateKey];
+            }
+            saveNotesData();
+            const noteIndicator = document.getElementById('modalNoteIndicator');
+            if (note.trim()) noteIndicator.classList.remove('hidden');
+            else noteIndicator.classList.add('hidden');
+        }
+
+        function selectCustomColor() {
+            document.querySelectorAll('input[name="taskColor"]').forEach(r => r.checked = false);
+        }
+
+        function getSelectedColor() {
+            const selectedPreset = document.querySelector('input[name="taskColor"]:checked');
+            if (selectedPreset) return selectedPreset.value;
+            return document.getElementById('customColorPicker').value;
+        }
+
+        // ==================== TASK CRUD ====================
+        function generateId() {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2, 8);
+        }
+
+        function addTask() {
+            if (!selectedDateKey) return;
+            const textInput = document.getElementById('taskInput');
+            const timeInput = document.getElementById('taskTimeInput');
+            const text = textInput.value.trim();
+            const time = timeInput.value;
+            const color = getSelectedColor();
+
+            if (!text) {
+                textInput.focus();
+                textInput.classList.add('ring-2', 'ring-red-400');
+                setTimeout(() => textInput.classList.remove('ring-2', 'ring-red-400'), 1500);
+                showToast('Vui lòng nhập tên công việc!', 'warning');
+                return;
+            }
+
+            const task = {
+                id: generateId(),
+                text: text,
+                time: time,
+                color: color,
+                done: false,
+                files: [...pendingFiles],
+                createdAt: new Date().toISOString(),
+            };
+
+            if (!tasksData[selectedDateKey]) tasksData[selectedDateKey] = [];
+            tasksData[selectedDateKey].push(task);
+            saveTasksData();
+
+            textInput.value = '';
+            timeInput.value = '';
+            pendingFiles = [];
+            renderPendingFiles();
+            document.getElementById('emojiPicker').classList.add('hidden');
+            textInput.focus();
+
+            const defaultColor = document.querySelector('input[name="taskColor"][value="#EF4444"]');
+            if (defaultColor) defaultColor.checked = true;
+            document.getElementById('customColorPicker').value = '#6366F1';
+
+            renderTaskList();
+            updateTotalTasksCount();
+            autoSaveDayNote();
+            showToast('✅ Đã thêm công việc!', 'success');
+        }
+
+        function toggleTaskDone(dateKey, taskId) {
+            const tasks = tasksData[dateKey];
+            if (!tasks) return;
+            const task = tasks.find(t => t.id === taskId);
+            if (task) {
+                task.done = !task.done;
+                saveTasksData();
+                renderTaskList();
+                updateTotalTasksCount();
+            }
+        }
+
+        function deleteTask(dateKey, taskId) {
+            const tasks = tasksData[dateKey];
+            if (!tasks) return;
+            const task = tasks.find(t => t.id === taskId);
+            const taskName = task ? task.text : '';
+            if (!confirm(`Xóa công việc "${taskName}"?\n\nHành động này không thể hoàn tác.`)) return;
+
+            tasksData[dateKey] = tasks.filter(t => t.id !== taskId);
+            if (tasksData[dateKey].length === 0) delete tasksData[dateKey];
+            saveTasksData();
+            renderTaskList();
+            updateTotalTasksCount();
+            showToast('🗑 Đã xóa công việc!', 'info');
+        }
+
+        function openEditModal(dateKey, taskId) {
+            const tasks = tasksData[dateKey];
+            if (!tasks) return;
+            const task = tasks.find(t => t.id === taskId);
+            if (!task) return;
+
+            document.getElementById('editTaskId').value = taskId;
+            document.getElementById('editTaskText').value = task.text;
+            document.getElementById('editTaskTime').value = task.time || '';
+
+            const presetRadio = document.querySelector(`input[name="editTaskColor"][value="${task.color}"]`);
+            if (presetRadio) presetRadio.checked = true;
+            else document.querySelectorAll('input[name="editTaskColor"]').forEach(r => r.checked = false);
+
+            document.getElementById('editOverlay').classList.remove('hidden');
+            document.getElementById('editTaskText').focus();
+        }
+
+        function closeEditModal() {
+            document.getElementById('editOverlay').classList.add('hidden');
+        }
+
+        function saveEditTask() {
+            if (!selectedDateKey) return;
+            const taskId = document.getElementById('editTaskId').value;
+            const newText = document.getElementById('editTaskText').value.trim();
+            const newTime = document.getElementById('editTaskTime').value;
+            const selectedColor = document.querySelector('input[name="editTaskColor"]:checked');
+
+            if (!newText) { showToast('Vui lòng nhập tên công việc!', 'warning'); return; }
+
+            const tasks = tasksData[selectedDateKey];
+            if (!tasks) return;
+            const task = tasks.find(t => t.id === taskId);
+            if (task) {
+                task.text = newText;
+                task.time = newTime;
+                if (selectedColor) task.color = selectedColor.value;
+                saveTasksData();
+                renderTaskList();
+                updateTotalTasksCount();
+                showToast('✏️ Đã cập nhật!', 'success');
+            }
+            closeEditModal();
+        }
+
+        // ==================== RENDER TASK LIST ====================
+        function renderTaskList() {
+            const listContainer = document.getElementById('taskList');
+            const emptyState = document.getElementById('emptyState');
+            if (!selectedDateKey) return;
+
+            const tasks = tasksData[selectedDateKey] || [];
+            if (tasks.length === 0) {
+                listContainer.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            }
+            emptyState.classList.add('hidden');
+
+            const sorted = [...tasks].sort((a, b) => {
+                if (a.done !== b.done) return a.done ? 1 : -1;
+                if (a.time && b.time) return a.time.localeCompare(b.time);
+                if (a.time) return -1;
+                if (b.time) return 1;
+                return 0;
+            });
+
+            let html = '';
+            sorted.forEach((task, index) => {
+                const doneClass = task.done ? 'task-done opacity-55' : '';
+                const bgColor = task.done ? 'bg-gray-50 dark:bg-gray-700/30' : 'bg-white dark:bg-gray-800';
+                const checkIcon = task.done
+                    ? '<svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg>'
+                    : '';
+
+                // File attachments display
+                let filesHtml = '';
+                if (task.files && task.files.length > 0) {
+                    filesHtml = '<div class="flex flex-wrap gap-1 mt-1.5">';
+                    task.files.forEach(f => {
+                        const icon = f.type === 'image' ? '🖼️' : '🎵';
+                        if (f.type === 'image') {
+                            filesHtml += `<img src="${f.data}" alt="${escapeHtml(f.name)}" class="w-10 h-10 rounded-lg object-cover cursor-pointer hover:ring-2 ring-indigo-400 transition-all" onclick="viewFullImage('${f.data}')" title="${escapeHtml(f.name)}">`;
+                        } else {
+                            filesHtml += `<div class="flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-100 dark:bg-gray-600 text-xs"><button onclick="playAudio('${f.data.replace(/'/g, "\\'")}', '${escapeHtml(f.name)}')" title="Phát âm thanh">▶️</button> ${escapeHtml(f.name)}</div>`;
+                        }
+                    });
+                    filesHtml += '</div>';
+                }
+
+                html += `
+                    <div class="task-item-enter flex items-start gap-3 p-3.5 rounded-xl border border-gray-200 dark:border-gray-700 ${bgColor} hover:shadow-lg transition-all group"
+                         style="animation-delay: ${index * 0.04}s; border-left: 4px solid ${task.color};">
+                        <button onclick="toggleTaskDone('${selectedDateKey}', '${task.id}')"
+                                class="flex-shrink-0 w-5 h-5 mt-0.5 rounded-md border-2 flex items-center justify-center transition-all hover:scale-115 cursor-pointer"
+                                style="background-color: ${task.done ? task.color : 'transparent'}; border-color: ${task.color};"
+                                title="${task.done ? 'Đánh dấu chưa hoàn thành' : 'Đánh dấu hoàn thành'}">
+                            ${checkIcon}
+                        </button>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-semibold text-gray-900 dark:text-white truncate ${doneClass}">${escapeHtml(task.text)}</p>
+                            ${task.time ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 font-medium ${doneClass}">🕐 ${escapeHtml(task.time)}</p>` : ''}
+                            ${filesHtml}
+                        </div>
+                        <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                            <button onclick="openEditModal('${selectedDateKey}', '${task.id}')" class="p-1.5 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-500 transition-colors" title="Sửa">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                            </button>
+                            <button onclick="deleteTask('${selectedDateKey}', '${task.id}')" class="p-1.5 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 transition-colors" title="Xóa">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            </button>
+                        </div>
+                    </div>`;
+            });
+
+            listContainer.innerHTML = html;
+        }
+
+        function viewFullImage(dataUrl) {
+            const viewer = document.getElementById('imageViewer');
+            document.getElementById('imageViewerImg').src = dataUrl;
+            viewer.classList.remove('hidden');
+        }
+
+        // Hidden audio element for playback
+        function playAudio(dataUrl, name) {
+            let audioEl = document.getElementById('hiddenAudioPlayer');
+            if (!audioEl) {
+                audioEl = document.createElement('audio');
+                audioEl.id = 'hiddenAudioPlayer';
+                audioEl.className = 'hidden';
+                audioEl.controls = true;
+                document.body.appendChild(audioEl);
+            }
+            audioEl.src = dataUrl;
+            audioEl.style.display = 'block';
+            audioEl.style.position = 'fixed';
+            audioEl.style.bottom = '80px';
+            audioEl.style.right = '20px';
+            audioEl.style.zIndex = '9999';
+            audioEl.style.width = '280px';
+            audioEl.style.borderRadius = '12px';
+            audioEl.style.boxShadow = '0 10px 40px rgba(0,0,0,0.3)';
+            audioEl.play().catch(e => console.log('Audio play:', e));
+
+            // Hide after 5 seconds of pause or 30 seconds total
+            setTimeout(() => {
+                if (audioEl.paused) {
+                    audioEl.style.display = 'none';
+                }
+            }, 30000);
+
+            audioEl.onpause = () => {
+                setTimeout(() => {
+                    if (audioEl.paused) audioEl.style.display = 'none';
+                }, 5000);
+            };
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // ==================== TOTAL TASKS COUNT ====================
+        function updateTotalTasksCount() {
+            let total = 0;
+            Object.values(tasksData).forEach(tasks => { total += tasks.length; });
+            document.getElementById('totalTasksCount').textContent = total;
+        }
+
+        // ==================== RESET DATA ====================
+        function resetAllData() {
+            if (!confirm('⚠️ Bạn có chắc muốn xóa TOÀN BỘ dữ liệu?\n\nTất cả công việc, ghi chú, file đính kèm sẽ bị xóa vĩnh viễn.\n\nHành động này KHÔNG THỂ hoàn tác!')) return;
+            if (!confirm('Xác nhận lần cuối: Xóa tất cả?')) return;
+
+            tasksData = {};
+            notesData = {};
+            lastNotifiedTasks = {};
+            pendingFiles = [];
+            localStorage.removeItem(STORAGE_KEY);
+            localStorage.removeItem(NOTES_KEY);
+            localStorage.removeItem('pctm_v3_notified');
+            localStorage.removeItem('pctm_v3_notif_reset_date');
+            saveTasksData();
+            saveNotesData();
+            saveNotifiedData();
+            renderCalendar();
+            updateTotalTasksCount();
+            if (selectedDateKey) {
+                document.getElementById('dayNoteInput').value = '';
+                document.getElementById('modalNoteIndicator').classList.add('hidden');
+                renderTaskList();
+            }
+            showToast('🗑 Đã xóa toàn bộ dữ liệu!', 'info');
+        }
+
+        // ==================== TOAST ====================
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const colors = {
+                success: 'bg-gradient-to-r from-green-500 to-emerald-600',
+                error: 'bg-gradient-to-r from-red-500 to-rose-600',
+                warning: 'bg-gradient-to-r from-yellow-500 to-amber-600',
+                info: 'bg-gradient-to-r from-blue-500 to-indigo-600',
+            };
+            const icons = {
+                success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️',
+            };
+            const toast = document.createElement('div');
+            toast.className = `toast flex items-center gap-2 px-4 py-3 rounded-xl text-white text-sm font-semibold shadow-xl pointer-events-auto ${colors[type] || colors.info}`;
+            toast.textContent = `${icons[type] || ''} ${message}`;
+            container.appendChild(toast);
+            setTimeout(() => { if (toast.parentNode) toast.remove(); }, 3500);
+        }
+
+        // ==================== EVENT LISTENERS ====================
+        document.getElementById('modalOverlay').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
+        document.getElementById('editOverlay').addEventListener('click', function(e) { if (e.target === this) closeEditModal(); });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                if (!document.getElementById('editOverlay').classList.contains('hidden')) closeEditModal();
+                else if (!document.getElementById('modalOverlay').classList.contains('hidden')) closeModal();
+                else if (document.getElementById('settingsPanel').classList.contains('open')) toggleSettingsPanel();
+            }
+            if (e.ctrlKey && e.key === 'ArrowLeft') { e.preventDefault(); navigateMonth(-1); }
+            if (e.ctrlKey && e.key === 'ArrowRight') { e.preventDefault(); navigateMonth(1); }
+            if (e.ctrlKey && e.key === 't') { e.preventDefault(); goToToday(); }
+        });
+
+        // System dark mode change
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
+            const saved = localStorage.getItem('pctm_v3_dark');
+            if (saved === null) {
+                if (e.matches) document.documentElement.classList.add('dark');
+                else document.documentElement.classList.remove('dark');
+                updateDarkModeIcon();
+            }
+        });
+
+        // ==================== STARTUP ====================
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+
+    <!-- Hidden audio element for playback -->
+    <audio id="hiddenAudioPlayer" class="hidden" controls style="display:none;"></audio>
+</body>
+</html>
